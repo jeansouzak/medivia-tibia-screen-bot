@@ -30,6 +30,7 @@ class Agent:
             self.spell = os.getenv('SPELL_NAME_'+self.index)        
             self.mana_spent = float(os.getenv('MANA_SPENT_'+self.index))
             self.seconds_to_one_mana = float(os.getenv('SECONDS_TO_ONE_MANA_'+self.index))
+            self.runes_to_craft = float(os.getenv('RUNES_TO_CRAFT_'+self.index))
             self.mana_train = os.getenv('MANA_TRAIN_'+self.index)
             self.time_to_spell = float(self.seconds_to_one_mana * self.mana_spent)
             self.last_running_time = dt.datetime.now()
@@ -59,28 +60,25 @@ class Agent:
             return False
 
         if not (self.representsInt(os.getenv('MANA_SPENT_'+self.index)) 
+                or self.representsInt(os.getenv('RUNES_TO_CRAFT_'+self.index)) 
                 or self.representsInt(os.getenv('SECONDS_TO_ONE_MANA_'+self.index))):
-            return False       
+            return False    
         
             
         return True
     
 
+    def isFinishToCraftRune(self):
+        if self.total_rune_made <= self.runes_to_craft:
+            print('Char '+self.char_name+' todas as runas solicitadas foram feitas')
+            return True
+        return False
+
     def isValidItems(self):
-        try:
-            if not self.getBlank():
-                self.sendAlert('suas BLANKS')
-                return False
-            if not self.getHand():
-                self.sendAlert('a MÃO vazia')
-                return False
+        try:            
             if not self.getFood():
                 self.sendAlert('suas FOODS')
                 return False
-            if not self.getTrashContainer():
-                self.sendAlert('seu container de RETENÇÃO')
-                return False
-                
             return True
         except FileNotFoundError:
             pyautogui.alert('Existem arquivos de imagem faltante / nome errado, refaça e reinicie a configuração', 'Atenção')
@@ -95,28 +93,13 @@ class Agent:
             return True
         except ValueError:
             return False
-    
-    def getHand(self):        
-        return pyautogui.locateOnScreen(Item.image_path + '/hand.png', grayscale=True)        
-
+     
     def getFood(self):     
         return pyautogui.locateOnScreen(Item.image_path + '/food.png', grayscale=True)
-
-    def getInsideBackpack(self):
-         return pyautogui.locateOnScreen(Item.image_path + '/inside_backpack.png', grayscale=True)
-
-    def getTrashContainer(self):
-        return pyautogui.locateOnScreen(Item.image_path + '/trash_container.png', grayscale=True)
     
     def getMediviaLoginScreen(self):
         return pyautogui.locateOnScreen(Item.image_path + '/medivia.png', grayscale=True)
 
-    
-    def getBlank(self):
-        blank = pyautogui.locateOnScreen(Item.image_path + '/blank.png', grayscale=True)
-        #to back rune
-        self.last_blank_pos = blank
-        return blank
 
     def focus(self):        
         #app_dialog = self.game_window.top_window()        
@@ -169,38 +152,13 @@ class Agent:
                 Action.eatFood(self.getFood())
                 self.state = self.WAITING
                 print(self.char_name+': Trabalho feito, aguardando mana')                
-        else:
-            hand = self.getHand()
-            if not hand:
-                #If rune stack on hand
-                Action.dragBackRune(self.getTrashContainer(), self.last_located_hand)
-            else:
-                self.last_located_hand = hand
-            
-            # try to drag blank to hand
-            if not Action.dragRuneToHand(self.getBlank(), hand):                        
-                self.has_blank = False            
-                # if blank not found try open inside blank backpack
-                if not Action.openInsideBackpack(self.getInsideBackpack()):
-                    if self.wasDisconneted() == False:
-                        print('Char '+self.char_name+' sem blank e conectado, deslogando')
-                        # logout if not found inside blank backpack                
-                        self.state = self.FINISHED                
-                        Action.logout()
-                        self.game_window.kill()            
-                        return 0
-                else:
-                    #if found blank backpack dragToHand again
-                    Action.dragRuneToHand(self.getBlank(), hand)
-                    self.has_blank = True            
-
-            Action.conjureSpell(os.getenv('SPELL_NAME_'+self.index))        
-            Action.dragBackRune(self.last_blank_pos, hand)
+        else:           
+            Action.conjureSpell(os.getenv('SPELL_NAME_'+self.index))            
             self.total_rune_made += 1
             self.total_mana_spent += self.mana_spent             
             food = self.getFood()
-            if not food and self.wasDisconneted() == False:
-                print('Char '+self.char_name+' sem food e conectado, deslogando')
+            if self.wasDisconneted() == False and (not self.isFinishToCraftRune() or not food):
+                print('Char '+self.char_name+' sem food ou com quantidade de runas feitas, deslogando')
                 self.state = self.FINISHED            
                 Action.logout()
                 self.game_window.kill()
