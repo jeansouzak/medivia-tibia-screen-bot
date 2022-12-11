@@ -87,7 +87,7 @@ def init():
                     total_mana_spent += agent.total_mana_spent
                     total_rune_made += agent.total_rune_made
                     if agent.state == Agent.FINISHED:
-                        print('Agent '+agent.char_name+' removido por falta de blank ou food')
+                        print('Agent '+agent.char_name+' removido: quantidade de runas concluidas ou acabou a food')
                         agents.remove(agent)
         if changed:
             print('Total de runas feitas: '+str(total_rune_made))
